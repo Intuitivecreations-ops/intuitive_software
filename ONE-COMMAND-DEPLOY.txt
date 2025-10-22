@@ -1,0 +1,113 @@
+# =============================================================================
+# CLEAN HEAD - ONE-COMMAND DEPLOYMENT
+# =============================================================================
+
+Your VPS: vps.intuitivecreationsllc.com (77.37.67.253)
+
+## STEP 1: Open Terminal on Your Local Machine
+
+Make sure you're in the project directory.
+
+## STEP 2: Run This Single Command
+
+Copy and paste this entire command:
+
+tar czf - . | ssh root@77.37.67.253 'mkdir -p /root/project && cd /root/project && tar xzf - && bash -s' << 'DEPLOY_SCRIPT'
+#!/bin/bash
+set -e
+
+echo "🚀 Clean Head Deployment Starting..."
+
+# Update system
+apt update > /dev/null 2>&1
+
+# Install Node.js if needed
+if ! command -v node &> /dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
+    apt install -y nodejs > /dev/null 2>&1
+fi
+
+# Install nginx if needed
+if ! command -v nginx &> /dev/null; then
+    apt install -y nginx > /dev/null 2>&1
+fi
+
+# Install certbot if needed
+if ! command -v certbot &> /dev/null; then
+    apt install -y certbot python3-certbot-nginx > /dev/null 2>&1
+fi
+
+# Create app directory
+mkdir -p /var/www/cleanhead
+cp -r /root/project/* /var/www/cleanhead/
+cd /var/www/cleanhead
+
+# Install and build
+npm install > /dev/null 2>&1
+npm run build > /dev/null 2>&1
+
+# Configure nginx
+cat > /etc/nginx/sites-available/cleanhead << 'NGINX_CONFIG'
+server {
+    listen 80;
+    server_name vps.intuitivecreationsllc.com;
+    root /var/www/cleanhead/dist;
+    index index.html;
+    
+    gzip on;
+    gzip_vary on;
+    gzip_types text/plain text/css application/javascript application/json;
+    
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+NGINX_CONFIG
+
+ln -sf /etc/nginx/sites-available/cleanhead /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl restart nginx
+
+# SSL
+certbot --nginx -d vps.intuitivecreationsllc.com --non-interactive --agree-tos --email admin@intuitivecreationsllc.com --redirect 2>/dev/null || echo "SSL setup - manual step may be needed"
+
+# Permissions
+chown -R www-data:www-data /var/www/cleanhead
+chmod -R 755 /var/www/cleanhead
+
+echo ""
+echo "✅ Deployment Complete!"
+echo "🌐 Visit: https://vps.intuitivecreationsllc.com"
+DEPLOY_SCRIPT
+
+## STEP 3: Wait for Completion
+
+The script will:
+- Install all required software
+- Build your application
+- Configure nginx
+- Set up SSL
+- Make it live
+
+This takes about 3-5 minutes.
+
+## STEP 4: Visit Your Site
+
+Open browser to: https://vps.intuitivecreationsllc.com
+
+## If You Get Permission Denied
+
+Use this alternative two-step approach:
+
+### Step A: Upload Files
+scp -r . root@77.37.67.253:/root/project/
+
+### Step B: Deploy
+ssh root@77.37.67.253 "cd /root/project && bash quick-deploy.sh"
+
+=============================================================================
