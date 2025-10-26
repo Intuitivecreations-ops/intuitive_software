@@ -1,0 +1,5 @@
+Recurring Expense Name,Recurrence Frequency,Repeat Every,Start Date,End Date,Recurrence Status,Expense Description,Expense Account,Expense Account Code,Paid Through,Paid Through Account Code,Vendor,Location Name,Mileage Rate,Mileage Unit,Distance,Currency Code,Exchange Rate,Is Inclusive Tax,Tax Name,Tax Percentage,Tax Type,Item Tax Authority,Tax Amount,Expense Amount,Total,Reference#,Is Billable,Customer Name
+Canva Subscription,Months,1,2025-08-18,,Active,,Advertising And Marketing,,"Intuitive Creations, LLC",,CANVA,Head Office,0.00,,0.00,USD,1.00,false,,,ItemAmount,,0.00,30.00,30.00,,false,
+Google,Months,1,2025-08-24,,Active,,IT and Internet Expenses,,"Intuitive Creations, LLC",,,Head Office,0.00,,0.00,USD,1.00,false,,,ItemAmount,,0.00,12.00,12.00,,false,
+INSURACE,Months,1,2025-08-22,,Active,,BUSINESS INSURANCE,,"Intuitive Creations, LLC",,NEXT,Head Office,0.00,,0.00,USD,1.00,false,,,ItemAmount,,0.00,137.43,137.43,,false,
+ZOHO Software,Months,1,2025-09-13,,Active,,IT and Internet Expenses,,"Intuitive Creations, LLC",,ZOHO,Head Office,0.00,,0.00,USD,1.00,false,,,ItemAmount,,0.00,54.00,54.00,,false,
