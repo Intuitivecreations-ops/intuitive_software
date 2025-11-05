@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, Invoice, Customer, Product } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit, Trash2, Search, FileText, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, FileText, X,Mail } from 'lucide-react';
 
 type InvoiceWithCustomer = Invoice & {
   customer: Customer | null;
@@ -186,7 +186,32 @@ export default function Invoices() {
                           <button
                             onClick={() => openModal(invoice)}
                             className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                          >
+                          ><button
+  onClick={() => {
+    if (!invoice.customer?.email) {
+      alert('This customer has no email address.');
+      return;
+    }
+    const subject = `Invoice ${invoice.invoice_number} from Clean Head`;
+    const body = `Dear ${invoice.customer.name},
+
+Please find invoice ${invoice.invoice_number} for $${invoice.total_amount.toFixed(2)}.
+
+Due Date: ${invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'Upon receipt'}
+
+Thank you for your business!
+
+Best regards,
+Intuitive Creations, LLC
+Clean Head`;
+    window.location.href = `mailto:${invoice.customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }}
+  disabled={!invoice.customer?.email}
+  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+  title={invoice.customer?.email ? 'Send invoice email' : 'Customer has no email'}
+>
+  <Mail className="w-4 h-4" />
+</button>
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
