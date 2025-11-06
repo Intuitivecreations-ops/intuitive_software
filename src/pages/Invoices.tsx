@@ -1,3 +1,4 @@
+// Updated for email functionality
 import { useEffect, useState } from 'react';
 import { supabase, Invoice, Customer, Product } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
