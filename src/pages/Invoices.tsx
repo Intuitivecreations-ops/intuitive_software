@@ -1,8 +1,7 @@
-// Updated for email functionality
 import { useEffect, useState } from 'react';
 import { supabase, Invoice, Customer, Product } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit, Trash2, Search, FileText, X, Mail } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, FileText, X } from 'lucide-react';
 
 type InvoiceWithCustomer = Invoice & {
   customer: Customer | null;
@@ -15,7 +14,6 @@ export default function Invoices() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -26,7 +24,7 @@ export default function Invoices() {
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*')
-        .order('created_at', { ascending: false});
+        .order('created_at', { ascending: false });
 
       if (invoicesError) throw invoicesError;
 
@@ -46,40 +44,6 @@ export default function Invoices() {
       console.error('Error fetching invoices:', error);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function sendInvoiceEmail(invoice: InvoiceWithCustomer) {
-    if (!invoice.customer?.email) {
-      alert('This customer does not have an email address on file.');
-      return;
-    }
-
-    if (!confirm(`Send invoice ${invoice.invoice_number} to ${invoice.customer.email}?`)) {
-      return;
-    }
-
-    setSendingEmail(invoice.id);
-
-   try {
-      const { data, error } = await supabase.functions.invoke('dynamic-task', {
-        body: {
-          invoiceId: invoice.id,
-          customerId: invoice.customer_id,
-        },
-      });
-      if (error) throw error;
-
-      if (data.success) {
-        alert(`Invoice sent successfully to ${invoice.customer.email}`);
-      } else {
-        throw new Error(data.error || 'Unknown error sending email');
-      }
-    } catch (error: any) {
-      console.error('Error sending invoice email:', error);
-      alert(`Failed to send invoice: ${error.message || 'Unknown error'}`);
-    } finally {
-      setSendingEmail(null);
     }
   }
 
@@ -217,29 +181,17 @@ export default function Invoices() {
                       </span>
                     </td>
                     {canEdit && (
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => sendInvoiceEmail(invoice)}
-                            disabled={!invoice.customer?.email || sendingEmail === invoice.id}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={invoice.customer?.email ? 'Send invoice email' : 'Customer has no email'}
-                          >
-                            {sendingEmail === invoice.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
-                            ) : (
-                              <Mail className="w-4 h-4" />
-                            )}
-                          </button>
-                          <button
                             onClick={() => openModal(invoice)}
-                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => deleteInvoice(invoice.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -258,7 +210,7 @@ export default function Invoices() {
         <InvoiceModal
           invoice={editingInvoice}
           onClose={closeModal}
-          onSaved={() => {
+          onSave={() => {
             closeModal();
             fetchInvoices();
           }}
@@ -268,51 +220,36 @@ export default function Invoices() {
   );
 }
 
-function InvoiceModal({
-  invoice,
-  onClose,
-  onSaved,
-}: {
-  invoice: Invoice | null;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
+function InvoiceModal({ invoice, onClose, onSave }: { invoice: Invoice | null; onClose: () => void; onSave: () => void }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [saving, setSaving] = useState(false);
-
   const [formData, setFormData] = useState({
     customer_id: invoice?.customer_id || '',
-    invoice_number: invoice?.invoice_number || '',
+    invoice_number: invoice?.invoice_number || `INV-${Date.now()}`,
     date: invoice?.date || new Date().toISOString().split('T')[0],
     due_date: invoice?.due_date || '',
     status: invoice?.status || 'unpaid' as 'paid' | 'unpaid' | 'overdue',
     sales_channel: (invoice as any)?.sales_channel || 'RETAIL' as 'RETAIL' | 'DTC' | 'ONLINE',
     notes: invoice?.notes || '',
   });
-
-  const [items, setItems] = useState<Array<{
-    product_id: string;
-    quantity: number;
-    unit_price: number;
-  }>>([{ product_id: '', quantity: 1, unit_price: 0 }]);
+  const [items, setItems] = useState<Array<{ product_id: string; quantity: number; unit_price: number }>>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchCustomers();
-    fetchProducts();
+    fetchCustomersAndProducts();
     if (invoice) {
       fetchInvoiceItems();
     }
-  }, [invoice]);
+  }, []);
 
-  async function fetchCustomers() {
-    const { data } = await supabase.from('customers').select('*').order('name');
-    if (data) setCustomers(data);
-  }
-
-  async function fetchProducts() {
-    const { data } = await supabase.from('products').select('*').order('name');
-    if (data) setProducts(data);
+  async function fetchCustomersAndProducts() {
+    const [{ data: customersData }, { data: productsData }] = await Promise.all([
+      supabase.from('customers').select('*'),
+      supabase.from('products').select('*'),
+    ]);
+    setCustomers(customersData || []);
+    setProducts(productsData || []);
   }
 
   async function fetchInvoiceItems() {
@@ -321,8 +258,8 @@ function InvoiceModal({
       .from('invoice_items')
       .select('*')
       .eq('invoice_id', invoice.id);
-    
-    if (data && data.length > 0) {
+
+    if (data) {
       setItems(data.map(item => ({
         product_id: item.product_id || '',
         quantity: item.quantity,
@@ -341,7 +278,15 @@ function InvoiceModal({
 
   function updateItem(index: number, field: string, value: any) {
     const newItems = [...items];
-    (newItems[index] as any)[field] = value;
+    newItems[index] = { ...newItems[index], [field]: value };
+
+    if (field === 'product_id') {
+      const product = products.find(p => p.id === value);
+      if (product && product.sale_price) {
+        newItems[index].unit_price = product.sale_price;
+      }
+    }
+
     setItems(newItems);
   }
 
@@ -349,15 +294,23 @@ function InvoiceModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError('');
     setSaving(true);
 
     try {
       const invoiceData = {
-        ...formData,
+        customer_id: formData.customer_id || null,
+        invoice_number: formData.invoice_number,
+        date: formData.date,
+        due_date: formData.due_date || null,
         total_amount: totalAmount,
+        status: formData.status,
+        sales_channel: formData.sales_channel,
+        notes: formData.notes || null,
+        updated_at: new Date().toISOString(),
       };
 
-      let invoiceId: string;
+      let invoiceId = invoice?.id;
 
       if (invoice) {
         const { error } = await supabase
@@ -365,69 +318,73 @@ function InvoiceModal({
           .update(invoiceData)
           .eq('id', invoice.id);
         if (error) throw error;
-        invoiceId = invoice.id;
 
         await supabase.from('invoice_items').delete().eq('invoice_id', invoice.id);
       } else {
         const { data, error } = await supabase
           .from('invoices')
-          .insert(invoiceData)
+          .insert([invoiceData])
           .select()
           .single();
         if (error) throw error;
         invoiceId = data.id;
       }
 
-      const itemsData = items
-        .filter(item => item.product_id)
-        .map(item => ({
+      if (items.length > 0 && invoiceId) {
+        const invoiceItems = items.map(item => ({
           invoice_id: invoiceId,
-          product_id: item.product_id,
+          product_id: item.product_id || null,
           quantity: item.quantity,
           unit_price: item.unit_price,
           total_price: item.quantity * item.unit_price,
         }));
 
-      if (itemsData.length > 0) {
-        const { error } = await supabase.from('invoice_items').insert(itemsData);
-        if (error) throw error;
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .insert(invoiceItems);
+        if (itemsError) throw itemsError;
       }
 
-      onSaved();
-    } catch (error) {
+      onSave();
+    } catch (error: any) {
       console.error('Error saving invoice:', error);
-      alert('Failed to save invoice');
+      setError(error.message || 'Failed to save invoice');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">
-            {invoice ? 'Edit Invoice' : 'Create Invoice'}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full my-8">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+          <h2 className="text-2xl font-bold text-slate-900">
+            {invoice ? 'Edit Invoice' : 'Create New Invoice'}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <X className="w-6 h-6" />
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
+        {error && (
+          <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label htmlFor="customer_id" className="block text-sm font-medium text-slate-700 mb-2">
-                Customer *
+                Customer
               </label>
               <select
                 id="customer_id"
-                required
                 value={formData.customer_id}
                 onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
               >
-                <option value="">Select a customer</option>
+                <option value="">Select customer</option>
                 {customers.map(customer => (
                   <option key={customer.id} value={customer.id}>{customer.name}</option>
                 ))}
@@ -505,6 +462,9 @@ function InvoiceModal({
                 <option value="DTC">DTC - Pop-ups/Trade Shows ($15/unit)</option>
                 <option value="ONLINE">ONLINE - Amazon/Ecwid ($17.99/unit)</option>
               </select>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Each channel has different pricing and affects profit margins
+              </p>
             </div>
           </div>
 
