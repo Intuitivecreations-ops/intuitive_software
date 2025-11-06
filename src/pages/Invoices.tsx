@@ -336,7 +336,6 @@ function InvoiceModal({ invoice, onClose, onSave }: { invoice: Invoice | null; o
           product_id: item.product_id || null,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          total_price: item.quantity * item.unit_price,
         }));
 
         const { error: itemsError } = await supabase
