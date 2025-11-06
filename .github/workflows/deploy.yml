@@ -34,7 +34,7 @@ jobs:
       
       - name: Deploy to VPS
         run: |
-          rsync -avz --delete \
+          rsync -avz --delete-after \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             dist/ \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}/
