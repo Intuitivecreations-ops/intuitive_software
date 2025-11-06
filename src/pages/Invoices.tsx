@@ -61,14 +61,13 @@ export default function Invoices() {
 
     setSendingEmail(invoice.id);
 
-    try {
-      const { data, error } = await supabase.functions.invoke('send-invoice-email', {
-        bodawait supabase.functions.invoke('dynamic-task', {y: {
+   try {
+      const { data, error } = await supabase.functions.invoke('dynamic-task', {
+        body: {
           invoiceId: invoice.id,
           customerId: invoice.customer_id,
         },
       });
-
       if (error) throw error;
 
       if (data.success) {
