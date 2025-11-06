@@ -63,7 +63,7 @@ export default function Invoices() {
 
     try {
       const { data, error } = await supabase.functions.invoke('send-invoice-email', {
-        body: {
+        bodawait supabase.functions.invoke('dynamic-task', {y: {
           invoiceId: invoice.id,
           customerId: invoice.customer_id,
         },
